@@ -1,6 +1,6 @@
 # Concurrent Traffic Simulation
 
-![Simulation in action](Recording_2026-03-03_151433.gif)
+![Simulation in action](assets/Recording_2026-03-03_151433.gif)
 
 A multithreaded city traffic simulator written in C++20. Vehicles drive around a map, queue at intersections, and wait for traffic lights — all running concurrently across independent threads.
 
