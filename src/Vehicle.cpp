@@ -4,12 +4,18 @@
 
 #include <chrono>
 #include <cmath>
-#include <future>
 #include <iostream>
 #include <thread>
 
 Vehicle::Vehicle() : rng_(std::random_device{}()) {
     type_ = ObjectType::kVehicle;
+}
+
+Vehicle::~Vehicle() {
+    // Join the drive thread before curr_street_, curr_destination_ and rng_
+    // are destroyed. Stopping also wakes the thread if it is blocked in
+    // Intersection::addVehicleToQueue.
+    stopThreads();
 }
 
 void Vehicle::setCurrentDestination(std::shared_ptr<Intersection> destination) {
@@ -30,7 +36,6 @@ void Vehicle::drive(std::stop_token stop_token) {
                   << "\n";
     }
 
-    bool has_entered_intersection = false;
     auto last_update = std::chrono::steady_clock::now();
 
     while (!stop_token.stop_requested()) {
@@ -68,21 +73,17 @@ void Vehicle::drive(std::stop_token stop_token) {
         const double yv = y1 + completion * (y2 - y1);
         setPosition(xv, yv);
 
-        // Approaching destination — request entry
-        if (completion >= 0.9 && !has_entered_intersection) {
-            auto ftr_entry = std::async(std::launch::async,
-                                        &Intersection::addVehicleToQueue,
-                                        curr_destination_,
-                                        shared_from_this());
-            ftr_entry.get();
-
+        // Approaching destination — request entry. Called directly on this
+        // thread so it can be woken by our stop_token at shutdown.
+        if (completion >= 0.9 && !is_in_intersection_) {
+            if (!curr_destination_->addVehicleToQueue(id_, stop_token)) {
+                return; // stop requested while waiting
+            }
             is_in_intersection_ = true;
-            has_entered_intersection = true;
-            last_update = std::chrono::steady_clock::now();
         }
 
         // Crossed the intersection — pick next street
-        if (completion >= 1.0 && has_entered_intersection) {
+        if (completion >= 1.0 && is_in_intersection_) {
             auto street_options =
                 curr_destination_->queryStreets(curr_street_);
 
@@ -104,17 +105,17 @@ void Vehicle::drive(std::stop_token stop_token) {
                     : next_street->getInIntersection();
 
             // Signal that we've left the current intersection
-            curr_destination_->vehicleHasLeft(shared_from_this());
+            curr_destination_->vehicleHasLeft();
 
             // Move to new street
             setCurrentDestination(std::move(next_intersection));
             setCurrentStreet(std::move(next_street));
 
             is_in_intersection_ = false;
-            has_entered_intersection = false;
-            last_update = std::chrono::steady_clock::now();
         }
 
+        // Reset after any blocking above so waiting time isn't counted as
+        // driving time.
         last_update = std::chrono::steady_clock::now();
     }
 }

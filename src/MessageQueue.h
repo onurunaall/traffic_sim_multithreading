@@ -5,9 +5,11 @@
 #include <deque>
 #include <mutex>
 #include <optional>
+#include <stop_token>
 
 /// Thread-safe message queue with blocking receive and bounded capacity.
-/// When the queue exceeds max_size, the oldest message is dropped (back-pressure).
+/// When the queue exceeds max_size, the oldest message is dropped, so senders
+/// never block and receivers always see the most recent messages.
 template <typename T>
 class MessageQueue {
   public:
@@ -41,11 +43,24 @@ class MessageQueue {
         return msg;
     }
 
+    /// Like receive(), but returns std::nullopt as soon as stop is requested
+    /// on stop_token, so a blocked receiver can be shut down.
+    std::optional<T> receive(std::stop_token stop_token) {
+        std::unique_lock<std::mutex> lock(mtx_);
+        if (!cond_.wait(lock, stop_token, [this] { return !queue_.empty(); })) {
+            return std::nullopt;
+        }
+        T msg = std::move(queue_.front());
+        queue_.pop_front();
+        return msg;
+    }
+
   private:
     std::deque<T> queue_;
     std::size_t max_size_;
     std::mutex mtx_;
-    std::condition_variable cond_;
+    // condition_variable_any is required for the stop_token-aware wait.
+    std::condition_variable_any cond_;
 };
 
 #endif // MESSAGE_QUEUE_H

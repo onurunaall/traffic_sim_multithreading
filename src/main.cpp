@@ -14,9 +14,24 @@
 struct TrafficScene {
     std::vector<std::shared_ptr<Street>> streets;
     std::vector<std::shared_ptr<Intersection>> intersections;
+    // Declared last so vehicles are destroyed (and their threads joined)
+    // first, while the streets and intersections they use still exist.
     std::vector<std::shared_ptr<Vehicle>> vehicles;
     std::string background_image;
 };
+
+
+// Each vehicle starts on its own street, so at most one vehicle per street.
+std::size_t clampVehicleCount(int requested, std::size_t num_streets) {
+    const auto count = static_cast<std::size_t>(std::max(requested, 0));
+    if (count > num_streets) {
+        std::cerr << "Warning: " << requested << " vehicles requested but the "
+                  << "scene has only " << num_streets << " streets; placing "
+                  << num_streets << ".\n";
+        return num_streets;
+    }
+    return count;
+}
 
 
 TrafficScene createParisScene(int num_vehicles) {
@@ -29,7 +44,7 @@ TrafficScene createParisScene(int num_vehicles) {
         scene.intersections.push_back(std::make_shared<Intersection>());
     }
 
-    // Position intersections in pixel coordinates (counter-clockwise)
+    // Position intersections in pixel coordinates (clockwise on screen)
     scene.intersections[0]->setPosition(385, 270);
     scene.intersections[1]->setPosition(1240, 80);
     scene.intersections[2]->setPosition(1625, 75);
@@ -51,10 +66,12 @@ TrafficScene createParisScene(int num_vehicles) {
     }
 
     // Place vehicles on streets heading toward central plaza
-    scene.vehicles.reserve(static_cast<std::size_t>(num_vehicles));
-    for (int i = 0; i < num_vehicles; ++i) {
+    const std::size_t vehicle_count =
+        clampVehicleCount(num_vehicles, scene.streets.size());
+    scene.vehicles.reserve(vehicle_count);
+    for (std::size_t i = 0; i < vehicle_count; ++i) {
         auto vehicle = std::make_shared<Vehicle>();
-        vehicle->setCurrentStreet(scene.streets[static_cast<std::size_t>(i)]);
+        vehicle->setCurrentStreet(scene.streets[i]);
         vehicle->setCurrentDestination(scene.intersections[8]);
         scene.vehicles.push_back(std::move(vehicle));
     }
@@ -65,7 +82,7 @@ TrafficScene createParisScene(int num_vehicles) {
 
 TrafficScene createNYCScene(int num_vehicles) {
     TrafficScene scene;
-    scene.background_image = "../data/nyc.jpg";
+    scene.background_image = PROJECT_DATA_DIR "/nyc.jpg";
 
     constexpr int kNumIntersections = 6;
     scene.intersections.reserve(kNumIntersections);
@@ -101,12 +118,14 @@ TrafficScene createNYCScene(int num_vehicles) {
     connect(5, 5, 0);
     connect(6, 0, 3); // diagonal
 
-    scene.vehicles.reserve(static_cast<std::size_t>(num_vehicles));
-    for (int i = 0; i < num_vehicles; ++i) {
+    // Each vehicle drives toward its street's in-intersection
+    const std::size_t vehicle_count =
+        clampVehicleCount(num_vehicles, scene.streets.size());
+    scene.vehicles.reserve(vehicle_count);
+    for (std::size_t i = 0; i < vehicle_count; ++i) {
         auto vehicle = std::make_shared<Vehicle>();
-        vehicle->setCurrentStreet(scene.streets[static_cast<std::size_t>(i)]);
-        vehicle->setCurrentDestination(
-            scene.intersections[static_cast<std::size_t>(i)]);
+        vehicle->setCurrentStreet(scene.streets[i]);
+        vehicle->setCurrentDestination(scene.streets[i]->getInIntersection());
         scene.vehicles.push_back(std::move(vehicle));
     }
 
@@ -119,7 +138,7 @@ int main() {
     constexpr int kNumVehicles = 6;
     TrafficScene scene = createParisScene(kNumVehicles);
 
-    //tart simulation threads
+    // Start simulation threads
     for (auto &intersection : scene.intersections) {
         intersection->simulate();
     }
@@ -142,7 +161,5 @@ int main() {
     Graphics graphics;
     graphics.setBgFilename(scene.background_image);
     graphics.setTrafficObjects(all_objects);
-    graphics.simulate();
-    
-    return 0;
+    return graphics.simulate() ? 0 : 1;
 }

@@ -1,7 +1,7 @@
 #include "Intersection.h"
 #include "Street.h"
-#include "Vehicle.h"
 
+#include <algorithm>
 #include <chrono>
 #include <iostream>
 #include <thread>
@@ -10,25 +10,33 @@
 
 int WaitingVehicles::getSize() {
     std::lock_guard<std::mutex> lock(mtx_);
-    return static_cast<int>(vehicles_.size());
+    return static_cast<int>(entries_.size());
 }
 
-void WaitingVehicles::pushBack(std::shared_ptr<Vehicle> vehicle,
-                                std::promise<void> &&promise) {
+void WaitingVehicles::pushBack(int vehicle_id, std::promise<void> &&promise) {
     std::lock_guard<std::mutex> lock(mtx_);
-    vehicles_.push_back(std::move(vehicle));
-    promises_.push_back(std::move(promise));
+    entries_.push_back({vehicle_id, std::move(promise)});
 }
 
-void WaitingVehicles::permitEntryToFirstInQueue() {
+bool WaitingVehicles::permitEntryToFirstInQueue() {
     std::lock_guard<std::mutex> lock(mtx_);
-    if (vehicles_.empty()) return;
+    if (entries_.empty()) return false;
 
     // Fulfill promise → unblocks the waiting vehicle thread
-    promises_.front().set_value();
+    entries_.front().promise.set_value();
+    entries_.pop_front();
+    return true;
+}
 
-    vehicles_.pop_front();
-    promises_.pop_front();
+void WaitingVehicles::remove(int vehicle_id) {
+    std::lock_guard<std::mutex> lock(mtx_);
+    auto it = std::find_if(entries_.begin(), entries_.end(),
+                           [vehicle_id](const Entry &e) {
+                               return e.vehicle_id == vehicle_id;
+                           });
+    if (it != entries_.end()) {
+        entries_.erase(it);
+    }
 }
 
 /* ── Intersection ─────────────────────────────────────────────────── */
@@ -37,24 +45,28 @@ Intersection::Intersection() {
     type_ = ObjectType::kIntersection;
 }
 
-void Intersection::addStreet(std::shared_ptr<Street> street) {
-    streets_.push_back(std::move(street));
+Intersection::~Intersection() {
+    // Join the queue processor before waiting_vehicles_ is destroyed.
+    stopThreads();
+}
+
+void Intersection::addStreet(const std::shared_ptr<Street> &street) {
+    streets_.push_back(street);
 }
 
 std::vector<std::shared_ptr<Street>>
 Intersection::queryStreets(const std::shared_ptr<Street> &incoming) const {
     std::vector<std::shared_ptr<Street>> outgoing;
-    for (const auto &s : streets_) {
-        if (s->getID() != incoming->getID()) {
-            outgoing.push_back(s);
+    for (const auto &weak_street : streets_) {
+        auto s = weak_street.lock();
+        if (s && s->getID() != incoming->getID()) {
+            outgoing.push_back(std::move(s));
         }
     }
     return outgoing;
 }
 
-void Intersection::addVehicleToQueue(std::shared_ptr<Vehicle> vehicle) {
-    const int vehicle_id = vehicle->getID();
-
+bool Intersection::addVehicleToQueue(int vehicle_id, std::stop_token stop_token) {
     {
         std::lock_guard<std::mutex> lock(cout_mtx_);
         std::cout << "Intersection #" << id_
@@ -65,10 +77,24 @@ void Intersection::addVehicleToQueue(std::shared_ptr<Vehicle> vehicle) {
     // Enqueue vehicle with a promise/future pair for synchronization
     std::promise<void> prms;
     std::future<void> ftr = prms.get_future();
-    waiting_vehicles_.pushBack(std::move(vehicle), std::move(prms));
+    waiting_vehicles_.pushBack(vehicle_id, std::move(prms));
 
-    // Block until the intersection grants entry
-    ftr.wait();
+    {
+        // If stop is requested while queued, drop the entry: destroying its
+        // promise makes ftr ready, so the wait below returns.
+        std::stop_callback on_stop(stop_token, [this, vehicle_id] {
+            waiting_vehicles_.remove(vehicle_id);
+        });
+
+        // Block until the intersection grants entry
+        ftr.wait();
+    }
+
+    // Stop only happens at shutdown, so a vehicle stopped after being granted
+    // entry may leave the intersection blocked.
+    if (stop_token.stop_requested()) {
+        return false;
+    }
 
     {
         std::lock_guard<std::mutex> lock(cout_mtx_);
@@ -77,12 +103,11 @@ void Intersection::addVehicleToQueue(std::shared_ptr<Vehicle> vehicle) {
     }
 
     // Block until the traffic light is green
-    if (traffic_light_.getCurrentPhase() == TrafficLightPhase::kRed) {
-        traffic_light_.waitForGreen();
-    }
+    return traffic_light_.waitForGreen(stop_token);
 }
 
-void Intersection::vehicleHasLeft(std::shared_ptr<Vehicle> /*vehicle*/) {
+void Intersection::vehicleHasLeft() {
+    num_crossings_.fetch_add(1);
     setIsBlocked(false);
 }
 
@@ -109,8 +134,13 @@ void Intersection::processVehicleQueue(std::stop_token stop_token) {
         std::this_thread::sleep_for(std::chrono::milliseconds(1));
 
         if (waiting_vehicles_.getSize() > 0 && !is_blocked_.load()) {
+            // Block before granting so the vehicle's vehicleHasLeft() can't
+            // run before this store. If a stopping vehicle emptied the queue
+            // in the meantime, undo the block.
             is_blocked_.store(true);
-            waiting_vehicles_.permitEntryToFirstInQueue();
+            if (!waiting_vehicles_.permitEntryToFirstInQueue()) {
+                is_blocked_.store(false);
+            }
         }
     }
 }

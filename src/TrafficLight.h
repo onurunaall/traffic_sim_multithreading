@@ -4,6 +4,8 @@
 #include "MessageQueue.h"
 #include "TrafficObject.h"
 
+#include <stop_token>
+
 enum class TrafficLightPhase {
     kRed,
     kGreen,
@@ -12,11 +14,13 @@ enum class TrafficLightPhase {
 class TrafficLight : public TrafficObject {
   public:
     TrafficLight();
+    ~TrafficLight() override;
 
     [[nodiscard]] TrafficLightPhase getCurrentPhase() const;
 
-    /// Blocks the calling thread until the traffic light turns green.
-    void waitForGreen();
+    /// Blocks the calling thread until the traffic light is green.
+    /// Returns false if stop was requested on stop_token before that.
+    bool waitForGreen(std::stop_token stop_token = {});
 
     void simulate() override;
 

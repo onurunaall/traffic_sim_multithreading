@@ -4,7 +4,9 @@
 
 #include <gtest/gtest.h>
 
+#include <chrono>
 #include <memory>
+#include <thread>
 
 TEST(VehicleTest, TypeIsVehicle) {
     Vehicle v;
@@ -35,33 +37,27 @@ TEST(VehicleTest, SetAndGetPosition) {
     EXPECT_DOUBLE_EQ(y, -13.7);
 }
 
-TEST(VehicleTest, SetCurrentDestinationResetsPosStreet) {
-    // We can't directly observe pos_street_, but we can verify the
-    // destination is set by checking that the vehicle doesn't crash
-    // when configured properly.
-    auto inter = std::make_shared<Intersection>();
-    inter->setPosition(100, 200);
+TEST(VehicleTest, DestructionWhileWaitingAtIntersectionDoesNotHang) {
+    // 100 px street at 400 px/s: the vehicle reaches the queue in ~0.25 s.
+    // The destination is never simulated, so the vehicle waits there forever
+    // unless destruction wakes it up.
+    auto start_inter = std::make_shared<Intersection>();
+    auto destination = std::make_shared<Intersection>();
+    start_inter->setPosition(0, 0);
+    destination->setPosition(100, 0);
 
-    Vehicle v;
-    v.setCurrentDestination(inter);
-    // If pos_street_ wasn't reset, driving would start at a wrong offset.
-    // This is a smoke test — the important thing is no crash.
-    SUCCEED();
-}
-
-TEST(VehicleTest, StreetDefaultLength) {
     auto street = std::make_shared<Street>();
-    EXPECT_DOUBLE_EQ(street->getLength(), 1000.0);
-}
+    street->setInIntersection(start_inter);
+    street->setOutIntersection(destination);
 
-TEST(VehicleTest, StreetConnectsIntersections) {
-    auto in = std::make_shared<Intersection>();
-    auto out = std::make_shared<Intersection>();
-    auto street = std::make_shared<Street>();
+    auto vehicle = std::make_shared<Vehicle>();
+    vehicle->setCurrentStreet(street);
+    vehicle->setCurrentDestination(destination);
+    vehicle->simulate();
 
-    street->setInIntersection(in);
-    street->setOutIntersection(out);
+    std::this_thread::sleep_for(std::chrono::milliseconds(500));
 
-    EXPECT_EQ(street->getInIntersection()->getID(), in->getID());
-    EXPECT_EQ(street->getOutIntersection()->getID(), out->getID());
+    auto start = std::chrono::steady_clock::now();
+    vehicle.reset();  // ~Vehicle stops and joins the drive thread
+    EXPECT_LT(std::chrono::steady_clock::now() - start, std::chrono::seconds(1));
 }

@@ -2,8 +2,8 @@ cmake_minimum_required(VERSION 3.16)
 project(traffic_simulation VERSION 1.0.0 LANGUAGES CXX)
 
 option(BUILD_GUI "Build the OpenCV visualization executable"  ON)
-option(BUILD_TESTS "Build unit tests (requires GTest)"          OFF)
-option(BUILD_BENCHMARKS "Build benchmarks (requires Google Benchmark)" OFF)
+option(BUILD_TESTS "Build unit tests (downloads GoogleTest)"          OFF)
+option(BUILD_BENCHMARKS "Build benchmarks (downloads Google Benchmark)" OFF)
 
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
@@ -107,6 +107,7 @@ if(BUILD_TESTS)
         tests/test_traffic_light.cpp
         tests/test_waiting_vehicles.cpp
         tests/test_intersection.cpp
+        tests/test_street.cpp
         tests/test_vehicle.cpp
     )
 

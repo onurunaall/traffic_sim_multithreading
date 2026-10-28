@@ -1,14 +1,19 @@
 #include "Graphics.h"
 #include "Intersection.h"
 
+#include <algorithm>
+#include <chrono>
 #include <cmath>
 #include <iostream>
+#include <thread>
 
 #include <opencv2/highgui.hpp>
 #include <opencv2/imgproc.hpp>
 
 bool Graphics::simulate() {
-    loadBackgroundImg();
+    if (!loadBackgroundImg()) {
+        return false;
+    }
 
     while (true) {
         std::this_thread::sleep_for(std::chrono::milliseconds(1));
@@ -25,20 +30,23 @@ bool Graphics::simulate() {
     return true;
 }
 
-void Graphics::loadBackgroundImg() {
-    window_name_ = "Concurrent Traffic Simulation";
-    cv::namedWindow(window_name_, cv::WINDOW_NORMAL);
-
+bool Graphics::loadBackgroundImg() {
     cv::Mat background = cv::imread(bg_filename_);
     if (background.empty()) {
         std::cerr << "Error: could not load background image: " << bg_filename_
                   << "\n";
-        return;
+        return false;
     }
+
+    // Only open the window once there is something to show; otherwise the
+    // render loop would never pump window events.
+    window_name_ = "Concurrent Traffic Simulation";
+    cv::namedWindow(window_name_, cv::WINDOW_NORMAL);
 
     images_.push_back(background);         // [0] original background
     images_.push_back(background.clone()); // [1] overlay layer
     images_.push_back(background.clone()); // [2] composited output
+    return true;
 }
 
 void Graphics::drawTrafficObjects() {
@@ -76,8 +84,11 @@ void Graphics::drawTrafficObjects() {
     cv::addWeighted(images_.at(1), kOpacity,
                     images_.at(0), 1.0 - kOpacity, 0, images_.at(2));
 
+    // Fit into 1040x720 while keeping the image's aspect ratio
+    const double scale = std::min(1040.0 / images_.at(2).cols,
+                                  720.0 / images_.at(2).rows);
     cv::Mat display;
-    cv::resize(images_.at(2), display, cv::Size(1040, 720), 0, 0, cv::INTER_LINEAR);
+    cv::resize(images_.at(2), display, cv::Size(), scale, scale, cv::INTER_LINEAR);
     cv::imshow(window_name_, display);
     cv::waitKey(33);
 }

@@ -5,22 +5,28 @@
 #include <random>
 #include <thread>
 
-TrafficLight::TrafficLight() : current_phase_(TrafficLightPhase::kRed) {
-    type_ = ObjectType::kIntersection; // rendered at intersection position
+TrafficLight::TrafficLight() : current_phase_(TrafficLightPhase::kRed) {}
+
+TrafficLight::~TrafficLight() {
+    // Join the cycle thread before phase_queue_ is destroyed.
+    stopThreads();
 }
 
 TrafficLightPhase TrafficLight::getCurrentPhase() const {
     return current_phase_.load();
 }
 
-void TrafficLight::waitForGreen() {
-    // Block until the message queue delivers a green phase.
-    while (true) {
-        TrafficLightPhase phase = phase_queue_.receive();
-        if (phase == TrafficLightPhase::kGreen) {
-            return;
+bool TrafficLight::waitForGreen(std::stop_token stop_token) {
+    // current_phase_ is the source of truth; queue messages only wake us up.
+    // Re-checking the phase after every message means a stale green left in
+    // the queue cannot let a vehicle through on red. The phase is stored
+    // before the message is sent, so no wake-up is lost.
+    while (current_phase_.load() != TrafficLightPhase::kGreen) {
+        if (!phase_queue_.receive(stop_token)) {
+            return false;
         }
     }
+    return true;
 }
 
 void TrafficLight::simulate() {
@@ -56,8 +62,8 @@ void TrafficLight::cycleThroughPhases(std::stop_token stop_token) {
 
             current_phase_.store(new_phase);
 
-            // Send update to message queue (move semantics)
-            phase_queue_.send(std::move(new_phase));
+            // Send update to message queue
+            phase_queue_.send(new_phase);
 
             // Log the change
             {

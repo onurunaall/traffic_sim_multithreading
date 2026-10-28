@@ -4,6 +4,7 @@
 
 #include <chrono>
 #include <future>
+#include <thread>
 
 TEST(TrafficLightTest, InitialPhaseIsRed) {
     TrafficLight tl;
@@ -43,14 +44,38 @@ TEST(TrafficLightTest, WaitForGreenReturnsOnGreen) {
     TrafficLight tl;
     tl.simulate();
 
-    // waitForGreen should return within ~7 seconds (at most one full red cycle)
-    auto future = std::async(std::launch::async, [&tl] {
-        tl.waitForGreen();
+    // waitForGreen should return within ~7 seconds (at most one full red
+    // cycle). It runs on a jthread so that, if the assertion fails, the
+    // jthread's destructor requests stop and unblocks it instead of hanging.
+    std::promise<bool> result;
+    auto result_ftr = result.get_future();
+    std::jthread waiter([&](std::stop_token st) {
+        result.set_value(tl.waitForGreen(st));
     });
 
-    auto status = future.wait_for(std::chrono::seconds(8));
+    auto status = result_ftr.wait_for(std::chrono::seconds(8));
     ASSERT_EQ(status, std::future_status::ready)
         << "waitForGreen() did not return within 8 seconds — possible deadlock";
+    EXPECT_TRUE(result_ftr.get());
+    EXPECT_EQ(tl.getCurrentPhase(), TrafficLightPhase::kGreen);
+}
+
+TEST(TrafficLightTest, WaitForGreenReturnsFalseOnStop) {
+    TrafficLight tl;  // never simulated, so it stays red
+
+    std::stop_source stop;
+    std::promise<bool> result;
+    auto result_ftr = result.get_future();
+    std::jthread waiter([&] { result.set_value(tl.waitForGreen(stop.get_token())); });
+
+    EXPECT_EQ(result_ftr.wait_for(std::chrono::milliseconds(100)),
+              std::future_status::timeout);
+
+    stop.request_stop();
+    ASSERT_EQ(result_ftr.wait_for(std::chrono::seconds(1)),
+              std::future_status::ready)
+        << "Stop request did not unblock waitForGreen()";
+    EXPECT_FALSE(result_ftr.get());
 }
 
 TEST(TrafficLightTest, CycleDurationWithinExpectedRange) {

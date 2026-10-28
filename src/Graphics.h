@@ -19,11 +19,11 @@ class Graphics {
     }
 
     /// Runs the rendering loop. Blocks until the user closes the window.
-    /// Returns true if the window was closed normally.
+    /// Returns false if the background image could not be loaded.
     bool simulate();
 
   private:
-    void loadBackgroundImg();
+    bool loadBackgroundImg();
     void drawTrafficObjects();
 
     std::vector<std::shared_ptr<TrafficObject>> traffic_objects_;

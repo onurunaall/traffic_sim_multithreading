@@ -6,7 +6,12 @@
 #include <thread>
 #include <vector>
 
-enum class ObjectType {kNone, kVehicle, kIntersection, kStreet};
+enum class ObjectType {
+    kNone,
+    kVehicle,
+    kIntersection,
+    kStreet,
+};
 
 class TrafficObject {
   public:
@@ -28,6 +33,11 @@ class TrafficObject {
     virtual void simulate() {};
 
   protected:
+    /// Requests stop on all owned threads and joins them. Derived classes must
+    /// call this first in their destructor, before their own members (which
+    /// the threads use) are destroyed.
+    void stopThreads();
+
     ObjectType type_{ObjectType::kNone};
     int id_;
     std::atomic<double> pos_x_{0.0};
