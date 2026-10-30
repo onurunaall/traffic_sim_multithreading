@@ -24,6 +24,7 @@ class Vehicle : public TrafficObject {
 
   private:
     void drive(std::stop_token stop_token);
+    void moveToNextStreet();
 
     std::shared_ptr<Street> curr_street_;
     std::shared_ptr<Intersection> curr_destination_;

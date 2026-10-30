@@ -2,37 +2,32 @@
 #include "Intersection.h"
 
 #include <algorithm>
-#include <chrono>
 #include <cmath>
 #include <iostream>
-#include <thread>
 
 #include <opencv2/highgui.hpp>
 #include <opencv2/imgproc.hpp>
+
+namespace {
+const std::string kWindowName = "Concurrent Traffic Simulation";
+}
 
 bool Graphics::simulate() {
     if (!loadBackgroundImg()) {
         return false;
     }
 
-    while (true) {
-        std::this_thread::sleep_for(std::chrono::milliseconds(1));
+    do {
         drawTrafficObjects();
-
-        // Check if user closed the window (waitKey returns -1 if no key,
-        // but getWindowProperty returns < 0 if window was closed)
-        if (cv::getWindowProperty(window_name_, cv::WND_PROP_VISIBLE) < 1.0) {
-            break;
-        }
-    }
+    } while (cv::getWindowProperty(kWindowName, cv::WND_PROP_VISIBLE) >= 1.0);
 
     cv::destroyAllWindows();
     return true;
 }
 
 bool Graphics::loadBackgroundImg() {
-    cv::Mat background = cv::imread(bg_filename_);
-    if (background.empty()) {
+    background_ = cv::imread(bg_filename_);
+    if (background_.empty()) {
         std::cerr << "Error: could not load background image: " << bg_filename_
                   << "\n";
         return false;
@@ -40,33 +35,24 @@ bool Graphics::loadBackgroundImg() {
 
     // Only open the window once there is something to show; otherwise the
     // render loop would never pump window events.
-    window_name_ = "Concurrent Traffic Simulation";
-    cv::namedWindow(window_name_, cv::WINDOW_NORMAL);
-
-    images_.push_back(background);         // [0] original background
-    images_.push_back(background.clone()); // [1] overlay layer
-    images_.push_back(background.clone()); // [2] composited output
+    cv::namedWindow(kWindowName, cv::WINDOW_NORMAL);
     return true;
 }
 
 void Graphics::drawTrafficObjects() {
-    if (images_.size() < 3) return;
-
-    // Reset overlay and output to background
-    images_.at(0).copyTo(images_.at(1));
-    images_.at(0).copyTo(images_.at(2));
+    background_.copyTo(overlay_);
 
     for (const auto &obj : traffic_objects_) {
         double pos_x, pos_y;
         obj->getPosition(pos_x, pos_y);
+        const cv::Point2d position(pos_x, pos_y);
 
         if (obj->getType() == ObjectType::kIntersection) {
             auto intersection = std::dynamic_pointer_cast<Intersection>(obj);
             cv::Scalar color = intersection->trafficLightIsGreen()
                                    ? cv::Scalar(0, 255, 0)   // green
                                    : cv::Scalar(0, 0, 255);  // red
-            cv::circle(images_.at(1),
-                       cv::Point2d(pos_x, pos_y), 25, color, -1);
+            cv::circle(overlay_, position, 25, color, -1);
         } else if (obj->getType() == ObjectType::kVehicle) {
             // Deterministic color per vehicle ID
             cv::RNG rng(obj->getID());
@@ -74,21 +60,19 @@ void Graphics::drawTrafficObjects() {
             int g = rng.uniform(0, 255);
             int r = static_cast<int>(
                 std::sqrt(std::max(0, 255 * 255 - g * g - b * b)));
-            cv::circle(images_.at(1),
-                       cv::Point2d(pos_x, pos_y), 50,
-                       cv::Scalar(b, g, r), -1);
+            cv::circle(overlay_, position, 50, cv::Scalar(b, g, r), -1);
         }
     }
 
     constexpr float kOpacity = 0.85f;
-    cv::addWeighted(images_.at(1), kOpacity,
-                    images_.at(0), 1.0 - kOpacity, 0, images_.at(2));
+    cv::Mat composite;
+    cv::addWeighted(overlay_, kOpacity, background_, 1.0 - kOpacity, 0, composite);
 
     // Fit into 1040x720 while keeping the image's aspect ratio
-    const double scale = std::min(1040.0 / images_.at(2).cols,
-                                  720.0 / images_.at(2).rows);
+    const double scale =
+        std::min(1040.0 / composite.cols, 720.0 / composite.rows);
     cv::Mat display;
-    cv::resize(images_.at(2), display, cv::Size(), scale, scale, cv::INTER_LINEAR);
-    cv::imshow(window_name_, display);
+    cv::resize(composite, display, cv::Size(), scale, scale, cv::INTER_LINEAR);
+    cv::imshow(kWindowName, display);
     cv::waitKey(33);
 }

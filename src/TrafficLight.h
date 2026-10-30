@@ -13,7 +13,6 @@ enum class TrafficLightPhase {
 
 class TrafficLight : public TrafficObject {
   public:
-    TrafficLight();
     ~TrafficLight() override;
 
     [[nodiscard]] TrafficLightPhase getCurrentPhase() const;
@@ -29,7 +28,7 @@ class TrafficLight : public TrafficObject {
     /// Respects the stop_token for graceful shutdown.
     void cycleThroughPhases(std::stop_token stop_token);
 
-    std::atomic<TrafficLightPhase> current_phase_;
+    std::atomic<TrafficLightPhase> current_phase_{TrafficLightPhase::kRed};
     MessageQueue<TrafficLightPhase> phase_queue_;
 };
 

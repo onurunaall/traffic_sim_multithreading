@@ -64,7 +64,6 @@ if(BUILD_GUI)
         src/Graphics.cpp
     )
 
-    target_compile_features(traffic_simulation PRIVATE cxx_std_20)
     target_compile_definitions(traffic_simulation PRIVATE
         PROJECT_DATA_DIR="${CMAKE_SOURCE_DIR}/data"
     )
@@ -74,7 +73,6 @@ if(BUILD_GUI)
     target_link_libraries(traffic_simulation PRIVATE
         traffic_core
         ${OpenCV_LIBRARIES}
-        Threads::Threads
         project_warnings
     )
 
@@ -111,7 +109,6 @@ if(BUILD_TESTS)
         tests/test_vehicle.cpp
     )
 
-    target_compile_features(traffic_tests PRIVATE cxx_std_20)
     target_link_libraries(traffic_tests PRIVATE
         traffic_core
         GTest::gtest_main
@@ -139,7 +136,6 @@ if(BUILD_BENCHMARKS)
         benchmarks/bench_simulation_scaling.cpp
     )
 
-    target_compile_features(traffic_benchmarks PRIVATE cxx_std_20)
     target_link_libraries(traffic_benchmarks PRIVATE
         traffic_core
         benchmark::benchmark

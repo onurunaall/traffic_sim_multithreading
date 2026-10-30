@@ -25,6 +25,10 @@ class Street : public TrafficObject, public std::enable_shared_from_this<Street>
     [[nodiscard]] std::shared_ptr<Intersection> getOutIntersection() const {
         return inter_out_;
     }
+    [[nodiscard]] std::shared_ptr<Intersection>
+    getOtherEnd(const std::shared_ptr<Intersection> &end) const {
+        return end == inter_in_ ? inter_out_ : inter_in_;
+    }
 
   private:
     std::shared_ptr<Intersection> inter_in_;

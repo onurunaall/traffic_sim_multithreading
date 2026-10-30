@@ -2,6 +2,7 @@
 #define TRAFFIC_OBJECT_H
 
 #include <atomic>
+#include <iostream>
 #include <mutex>
 #include <thread>
 #include <vector>
@@ -30,13 +31,19 @@ class TrafficObject {
     void setPosition(double x, double y);
     void getPosition(double &x, double &y) const;
 
-    virtual void simulate() {};
+    virtual void simulate() {}
 
   protected:
     /// Requests stop on all owned threads and joins them. Derived classes must
     /// call this first in their destructor, before their own members (which
     /// the threads use) are destroyed.
     void stopThreads();
+
+    template <typename... Args>
+    void log(const Args &...args) const {
+        std::lock_guard lock(cout_mtx_);
+        (std::cout << ... << args) << "\n";
+    }
 
     ObjectType type_{ObjectType::kNone};
     int id_;
@@ -45,10 +52,8 @@ class TrafficObject {
 
     std::vector<std::jthread> threads_;
 
-    // Shared mutex for synchronized console output only.
-    static std::mutex cout_mtx_;
-
   private:
+    static inline std::mutex cout_mtx_;
     static inline std::atomic<int> id_counter_{0};
 };
 
