@@ -7,6 +7,7 @@
 #include <chrono>
 #include <future>
 #include <memory>
+#include <thread>
 
 // ─── Helper: build a minimal intersection topology ──────────────────
 
@@ -79,6 +80,20 @@ TEST(IntersectionTest, QueryStreetsReturnsAllButIncoming) {
     EXPECT_EQ(outgoing.size(), 2u);
 }
 
+TEST(IntersectionTest, TopologyIsFreedWhenReleased) {
+    // Streets and intersections must not keep each other alive.
+    std::weak_ptr<Intersection> center;
+    std::weak_ptr<Street> street;
+    {
+        auto topo = buildMiniTopology();
+        topo.center->simulate();
+        center = topo.center;
+        street = topo.street_n;
+    }
+    EXPECT_TRUE(center.expired());
+    EXPECT_TRUE(street.expired());
+}
+
 TEST(IntersectionTest, TrafficLightStartsRed) {
     Intersection i;
     // Before simulate(), the traffic light should be in its initial state (red)
@@ -101,27 +116,51 @@ TEST(IntersectionTest, TrafficLightEventuallyTurnsGreen) {
 
 TEST(IntersectionTest, VehicleCanPassThroughIntersection) {
     // Build topology, start simulation, and verify a vehicle can be admitted.
-    // The vehicle must be held in a shared_ptr for the entire test duration.
     auto topo = buildMiniTopology();
     topo.center->simulate();
 
-    // Vehicle must be created via make_shared (needed for shared_from_this in
-    // the Vehicle class, though we don't call drive() here).
     auto vehicle = std::make_shared<Vehicle>();
     vehicle->setCurrentStreet(topo.street_n);
     vehicle->setCurrentDestination(topo.center);
 
-    // addVehicleToQueue blocks until (a) queue processes it and (b) light is green.
-    // We run it async with a timeout to detect deadlocks.
-    auto future = std::async(std::launch::async,
-                             &Intersection::addVehicleToQueue,
-                             topo.center, vehicle);
+    // addVehicleToQueue blocks until (a) queue processes it and (b) light is
+    // green. It runs on a jthread so that, if the assertion below fails, the
+    // jthread's destructor requests stop and unblocks it instead of hanging.
+    std::promise<bool> admitted;
+    auto admitted_ftr = admitted.get_future();
+    std::jthread worker([&](std::stop_token st) {
+        admitted.set_value(
+            topo.center->addVehicleToQueue(vehicle->getID(), st));
+    });
 
     // Should complete within a couple of traffic light cycles (~14s max)
-    auto status = future.wait_for(std::chrono::seconds(15));
+    auto status = admitted_ftr.wait_for(std::chrono::seconds(15));
     ASSERT_EQ(status, std::future_status::ready)
         << "Vehicle was never admitted through intersection — possible deadlock";
+    EXPECT_TRUE(admitted_ftr.get());
 
     // Clean up: let the intersection know the vehicle left so it unblocks
-    topo.center->vehicleHasLeft(vehicle);
+    topo.center->vehicleHasLeft();
+    EXPECT_EQ(topo.center->getNumCrossings(), 1);
+}
+
+TEST(IntersectionTest, StopUnblocksQueuedVehicle) {
+    // The intersection is never simulated, so the vehicle is never admitted.
+    Intersection intersection;
+
+    std::stop_source stop;
+    std::promise<bool> admitted;
+    auto admitted_ftr = admitted.get_future();
+    std::jthread worker([&] {
+        admitted.set_value(intersection.addVehicleToQueue(42, stop.get_token()));
+    });
+
+    EXPECT_EQ(admitted_ftr.wait_for(std::chrono::milliseconds(100)),
+              std::future_status::timeout);
+
+    stop.request_stop();
+    ASSERT_EQ(admitted_ftr.wait_for(std::chrono::seconds(1)),
+              std::future_status::ready)
+        << "Stop request did not unblock the queued vehicle";
+    EXPECT_FALSE(admitted_ftr.get());
 }

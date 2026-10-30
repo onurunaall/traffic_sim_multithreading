@@ -2,9 +2,11 @@
 
 #include <gtest/gtest.h>
 
+#include <algorithm>
 #include <atomic>
 #include <chrono>
 #include <future>
+#include <memory>
 #include <thread>
 #include <vector>
 
@@ -71,6 +73,35 @@ TEST(MessageQueueTest, ReceiveBlocksUntilSend) {
     EXPECT_TRUE(received.load());
 }
 
+TEST(MessageQueueTest, ReceiveWithStopTokenReturnsMessage) {
+    MessageQueue<int> q;
+    std::stop_source stop;
+    q.send(5);
+    auto val = q.receive(stop.get_token());
+    ASSERT_TRUE(val.has_value());
+    EXPECT_EQ(*val, 5);
+}
+
+TEST(MessageQueueTest, StopUnblocksReceive) {
+    MessageQueue<int> q;
+    std::stop_source stop;
+
+    std::promise<bool> got_message;
+    auto got_message_ftr = got_message.get_future();
+    std::jthread receiver([&] {
+        got_message.set_value(q.receive(stop.get_token()).has_value());
+    });
+
+    EXPECT_EQ(got_message_ftr.wait_for(std::chrono::milliseconds(50)),
+              std::future_status::timeout);
+
+    stop.request_stop();
+    ASSERT_EQ(got_message_ftr.wait_for(std::chrono::seconds(1)),
+              std::future_status::ready)
+        << "Stop request did not unblock receive()";
+    EXPECT_FALSE(got_message_ftr.get());
+}
+
 // ─── Thread safety ──────────────────────────────────────────────────
 
 TEST(MessageQueueTest, ConcurrentProducersSingleConsumer) {
@@ -117,36 +148,38 @@ TEST(MessageQueueTest, ConcurrentProducerConsumerPingPong) {
     constexpr int kNumMessages = 5000;
     constexpr std::size_t kCapacity = 100;
     MessageQueue<int> q(kCapacity);
-    std::atomic<bool> producer_done{false};
 
+    // send() never blocks, so the producer cannot hang.
     auto producer = std::async(std::launch::async, [&] {
         for (int i = 0; i < kNumMessages; ++i) {
             q.send(i);
         }
-        producer_done.store(true);
         // Send sentinel to unblock consumer
         q.send(kNumMessages);
     });
 
-    auto consumer = std::async(std::launch::async, [&] {
+    // The consumer runs on a jthread with a stoppable receive so that, if an
+    // assertion below fails, the jthread's destructor unblocks it.
+    std::promise<int> consumer_count;
+    auto consumer_ftr = consumer_count.get_future();
+    std::jthread consumer([&](std::stop_token st) {
         int last = -1;
         int count = 0;
-        while (true) {
-            int val = q.receive();
-            if (val == kNumMessages) break;  // sentinel
-            EXPECT_GT(val, last) << "Non-monotonic at count " << count;
-            last = val;
+        while (auto val = q.receive(st)) {
+            if (*val == kNumMessages) break;  // sentinel
+            EXPECT_GT(*val, last) << "Non-monotonic at count " << count;
+            last = *val;
             ++count;
         }
-        return count;
+        consumer_count.set_value(count);
     });
 
     ASSERT_EQ(producer.wait_for(std::chrono::seconds(5)),
               std::future_status::ready);
-    ASSERT_EQ(consumer.wait_for(std::chrono::seconds(5)),
+    ASSERT_EQ(consumer_ftr.wait_for(std::chrono::seconds(5)),
               std::future_status::ready);
 
-    int received = consumer.get();
+    int received = consumer_ftr.get();
     // We should receive at least some messages (not zero, not all if drops occur)
     EXPECT_GT(received, 0);
 }

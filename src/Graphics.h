@@ -14,22 +14,22 @@ class Graphics {
     void setBgFilename(std::string filename) { bg_filename_ = std::move(filename); }
 
     void setTrafficObjects(
-        std::vector<std::shared_ptr<TrafficObject>> &traffic_objects) {
-        traffic_objects_ = traffic_objects;
+        std::vector<std::shared_ptr<TrafficObject>> traffic_objects) {
+        traffic_objects_ = std::move(traffic_objects);
     }
 
     /// Runs the rendering loop. Blocks until the user closes the window.
-    /// Returns true if the window was closed normally.
+    /// Returns false if the background image could not be loaded.
     bool simulate();
 
   private:
-    void loadBackgroundImg();
+    bool loadBackgroundImg();
     void drawTrafficObjects();
 
     std::vector<std::shared_ptr<TrafficObject>> traffic_objects_;
     std::string bg_filename_;
-    std::string window_name_;
-    std::vector<cv::Mat> images_;
+    cv::Mat background_;
+    cv::Mat overlay_;
 };
 
 #endif // GRAPHICS_H

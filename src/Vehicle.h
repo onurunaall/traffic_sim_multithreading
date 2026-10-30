@@ -10,9 +10,10 @@
 class Street;
 class Intersection;
 
-class Vehicle : public TrafficObject, public std::enable_shared_from_this<Vehicle> {
+class Vehicle : public TrafficObject {
   public:
     Vehicle();
+    ~Vehicle() override;
 
     void setCurrentStreet(std::shared_ptr<Street> street) {
         curr_street_ = std::move(street);
@@ -23,11 +24,12 @@ class Vehicle : public TrafficObject, public std::enable_shared_from_this<Vehicl
 
   private:
     void drive(std::stop_token stop_token);
+    void moveToNextStreet();
 
     std::shared_ptr<Street> curr_street_;
     std::shared_ptr<Intersection> curr_destination_;
     double pos_street_{0.0};      // progress along current street [0..length]
-    double base_speed_{400.0};    // base ego speed in m/s
+    double base_speed_{400.0};    // base ego speed in pixels/second
     bool is_in_intersection_{false};
 
     std::mt19937 rng_;            // per-vehicle RNG, seeded once

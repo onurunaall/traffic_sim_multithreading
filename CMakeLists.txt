@@ -2,8 +2,8 @@ cmake_minimum_required(VERSION 3.16)
 project(traffic_simulation VERSION 1.0.0 LANGUAGES CXX)
 
 option(BUILD_GUI "Build the OpenCV visualization executable"  ON)
-option(BUILD_TESTS "Build unit tests (requires GTest)"          OFF)
-option(BUILD_BENCHMARKS "Build benchmarks (requires Google Benchmark)" OFF)
+option(BUILD_TESTS "Build unit tests (downloads GoogleTest)"          OFF)
+option(BUILD_BENCHMARKS "Build benchmarks (downloads Google Benchmark)" OFF)
 
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
@@ -64,7 +64,6 @@ if(BUILD_GUI)
         src/Graphics.cpp
     )
 
-    target_compile_features(traffic_simulation PRIVATE cxx_std_20)
     target_compile_definitions(traffic_simulation PRIVATE
         PROJECT_DATA_DIR="${CMAKE_SOURCE_DIR}/data"
     )
@@ -74,7 +73,6 @@ if(BUILD_GUI)
     target_link_libraries(traffic_simulation PRIVATE
         traffic_core
         ${OpenCV_LIBRARIES}
-        Threads::Threads
         project_warnings
     )
 
@@ -107,10 +105,10 @@ if(BUILD_TESTS)
         tests/test_traffic_light.cpp
         tests/test_waiting_vehicles.cpp
         tests/test_intersection.cpp
+        tests/test_street.cpp
         tests/test_vehicle.cpp
     )
 
-    target_compile_features(traffic_tests PRIVATE cxx_std_20)
     target_link_libraries(traffic_tests PRIVATE
         traffic_core
         GTest::gtest_main
@@ -138,7 +136,6 @@ if(BUILD_BENCHMARKS)
         benchmarks/bench_simulation_scaling.cpp
     )
 
-    target_compile_features(traffic_benchmarks PRIVATE cxx_std_20)
     target_link_libraries(traffic_benchmarks PRIVATE
         traffic_core
         benchmark::benchmark

@@ -1,10 +1,11 @@
 #include "Intersection.h"
-#include "Vehicle.h"
 
 #include <gtest/gtest.h>
 
+#include <chrono>
 #include <future>
-#include <memory>
+#include <thread>
+#include <vector>
 
 TEST(WaitingVehiclesTest, InitialSizeIsZero) {
     WaitingVehicles wv;
@@ -13,23 +14,21 @@ TEST(WaitingVehiclesTest, InitialSizeIsZero) {
 
 TEST(WaitingVehiclesTest, PushBackIncreasesSize) {
     WaitingVehicles wv;
-    auto v = std::make_shared<Vehicle>();
     std::promise<void> p;
-    wv.pushBack(v, std::move(p));
+    wv.pushBack(1, std::move(p));
     EXPECT_EQ(wv.getSize(), 1);
 }
 
 TEST(WaitingVehiclesTest, PermitEntryFulfillsPromise) {
     WaitingVehicles wv;
 
-    auto v = std::make_shared<Vehicle>();
     std::promise<void> p;
     std::future<void> f = p.get_future();
-    wv.pushBack(v, std::move(p));
+    wv.pushBack(1, std::move(p));
 
     EXPECT_EQ(wv.getSize(), 1);
 
-    wv.permitEntryToFirstInQueue();
+    EXPECT_TRUE(wv.permitEntryToFirstInQueue());
 
     // The future should now be ready (promise fulfilled)
     auto status = f.wait_for(std::chrono::milliseconds(100));
@@ -40,15 +39,12 @@ TEST(WaitingVehiclesTest, PermitEntryFulfillsPromise) {
 TEST(WaitingVehiclesTest, FIFO_Order) {
     WaitingVehicles wv;
 
-    auto v1 = std::make_shared<Vehicle>();
-    auto v2 = std::make_shared<Vehicle>();
-
     std::promise<void> p1, p2;
     std::future<void> f1 = p1.get_future();
     std::future<void> f2 = p2.get_future();
 
-    wv.pushBack(v1, std::move(p1));
-    wv.pushBack(v2, std::move(p2));
+    wv.pushBack(1, std::move(p1));
+    wv.pushBack(2, std::move(p2));
     EXPECT_EQ(wv.getSize(), 2);
 
     // First permit should fulfill p1 (first in)
@@ -68,9 +64,33 @@ TEST(WaitingVehiclesTest, FIFO_Order) {
 
 TEST(WaitingVehiclesTest, PermitOnEmptyQueueIsNoOp) {
     WaitingVehicles wv;
-    // Should not crash or throw
-    EXPECT_NO_THROW(wv.permitEntryToFirstInQueue());
+    // Should not crash or throw, and reports that nobody was admitted
+    EXPECT_FALSE(wv.permitEntryToFirstInQueue());
     EXPECT_EQ(wv.getSize(), 0);
+}
+
+TEST(WaitingVehiclesTest, RemoveUnblocksWithoutGrantingEntry) {
+    WaitingVehicles wv;
+
+    std::promise<void> p1, p2;
+    std::future<void> f1 = p1.get_future();
+    std::future<void> f2 = p2.get_future();
+    wv.pushBack(1, std::move(p1));
+    wv.pushBack(2, std::move(p2));
+
+    wv.remove(1);
+    EXPECT_EQ(wv.getSize(), 1);
+
+    // The removed vehicle's future is ready with broken_promise
+    ASSERT_EQ(f1.wait_for(std::chrono::milliseconds(0)),
+              std::future_status::ready);
+    EXPECT_THROW(f1.get(), std::future_error);
+
+    // The other vehicle is still queued and is next in line
+    EXPECT_EQ(f2.wait_for(std::chrono::milliseconds(0)),
+              std::future_status::timeout);
+    wv.permitEntryToFirstInQueue();
+    EXPECT_NO_THROW(f2.get());
 }
 
 TEST(WaitingVehiclesTest, ConcurrentPushBack) {
@@ -79,10 +99,9 @@ TEST(WaitingVehiclesTest, ConcurrentPushBack) {
 
     std::vector<std::jthread> threads;
     for (int i = 0; i < kNumThreads; ++i) {
-        threads.emplace_back([&wv] {
-            auto v = std::make_shared<Vehicle>();
+        threads.emplace_back([&wv, i] {
             std::promise<void> p;
-            wv.pushBack(v, std::move(p));
+            wv.pushBack(i, std::move(p));
         });
     }
     threads.clear();  // join all
