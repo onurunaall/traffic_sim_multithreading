@@ -35,7 +35,7 @@ jobs:
       - name: Run clang-tidy
         run: |
           if ! run-clang-tidy-18 -p build -quiet -warnings-as-errors='*' \
-                '/(src|tests|benchmarks)/' > tidy.log 2>&1; then
+                "^$PWD/(src|tests|benchmarks)/" > tidy.log 2>&1; then
             cat tidy.log
             grep -E '^[^ ].*:[0-9]+:[0-9]+: (warning|error):' tidy.log |
               sed -E "s|$PWD/||; s/:[0-9]+: (warning|error):/:/; s/,-warnings-as-errors\]/]/" |
