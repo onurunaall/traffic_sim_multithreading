@@ -43,7 +43,7 @@ void Graphics::drawTrafficObjects() {
     background_.copyTo(overlay_);
 
     for (const auto &obj : traffic_objects_) {
-        double pos_x, pos_y;
+        double pos_x = 0.0, pos_y = 0.0;
         obj->getPosition(pos_x, pos_y);
         const cv::Point2d position(pos_x, pos_y);
 

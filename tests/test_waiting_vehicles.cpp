@@ -98,6 +98,7 @@ TEST(WaitingVehiclesTest, ConcurrentPushBack) {
     constexpr int kNumThreads = 16;
 
     std::vector<std::jthread> threads;
+    threads.reserve(kNumThreads);
     for (int i = 0; i < kNumThreads; ++i) {
         threads.emplace_back([&wv, i] {
             std::promise<void> p;

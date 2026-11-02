@@ -78,8 +78,7 @@ TEST(MessageQueueTest, ReceiveWithStopTokenReturnsMessage) {
     std::stop_source stop;
     q.send(5);
     auto val = q.receive(stop.get_token());
-    ASSERT_TRUE(val.has_value());
-    EXPECT_EQ(*val, 5);
+    EXPECT_EQ(val, 5);
 }
 
 TEST(MessageQueueTest, StopUnblocksReceive) {
@@ -107,15 +106,16 @@ TEST(MessageQueueTest, StopUnblocksReceive) {
 TEST(MessageQueueTest, ConcurrentProducersSingleConsumer) {
     constexpr int kNumProducers = 8;
     constexpr int kMessagesPerProducer = 1000;
-    MessageQueue<int> q(kNumProducers * kMessagesPerProducer);
+    constexpr int kTotal = kNumProducers * kMessagesPerProducer;
+    MessageQueue<int> q(kTotal);
 
     // Launch producers
     std::vector<std::jthread> producers;
+    producers.reserve(kNumProducers);
     for (int p = 0; p < kNumProducers; ++p) {
         producers.emplace_back([&q, p] {
             for (int i = 0; i < kMessagesPerProducer; ++i) {
-                int val = p * kMessagesPerProducer + i;
-                q.send(std::move(val));
+                q.send(p * kMessagesPerProducer + i);
             }
         });
     }
@@ -125,8 +125,8 @@ TEST(MessageQueueTest, ConcurrentProducersSingleConsumer) {
 
     // Consume all messages
     std::vector<int> received;
-    received.reserve(kNumProducers * kMessagesPerProducer);
-    for (int i = 0; i < kNumProducers * kMessagesPerProducer; ++i) {
+    received.reserve(kTotal);
+    for (int i = 0; i < kTotal; ++i) {
         received.push_back(q.receive());
     }
 

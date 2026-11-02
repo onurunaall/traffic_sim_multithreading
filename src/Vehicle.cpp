@@ -44,7 +44,7 @@ void Vehicle::drive(std::stop_token stop_token) {
 
         const double completion = pos_street_ / curr_street_->getLength();
 
-        double x1, y1, x2, y2;
+        double x1 = 0.0, y1 = 0.0, x2 = 0.0, y2 = 0.0;
         curr_street_->getOtherEnd(curr_destination_)->getPosition(x1, y1);
         curr_destination_->getPosition(x2, y2);
         setPosition(x1 + completion * (x2 - x1), y1 + completion * (y2 - y1));

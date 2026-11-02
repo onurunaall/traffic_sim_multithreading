@@ -13,7 +13,16 @@ Checks: >
   -bugprone-easily-swappable-parameters,
   -cppcoreguidelines-avoid-magic-numbers,
   -cppcoreguidelines-non-private-member-variables-in-classes,
-  -cppcoreguidelines-avoid-const-or-ref-data-members
+  -cppcoreguidelines-avoid-const-or-ref-data-members,
+  -cppcoreguidelines-avoid-do-while,
+  -cppcoreguidelines-pro-bounds-array-to-pointer-decay,
+  -performance-enum-size
+
+CheckOptions:
+  # std::stop_token is a cheap handle; the standard library passes it by value.
+  performance-unnecessary-value-param.AllowedTypes: 'std::stop_token'
+  # TrafficObject deletes copy/move, so derived classes only need a destructor.
+  cppcoreguidelines-special-member-functions.AllowImplicitlyDeletedCopyOrMove: true
 
 # Only our own headers (GoogleTest/Benchmark also have src/ folders).
 HeaderFilterRegex: '.*/src/[A-Z][A-Za-z]*\.h$'

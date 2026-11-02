@@ -22,7 +22,7 @@ TEST(VehicleTest, UniqueIDs) {
 
 TEST(VehicleTest, PositionDefaultsToZero) {
     Vehicle v;
-    double x, y;
+    double x = -1.0, y = -1.0;
     v.getPosition(x, y);
     EXPECT_DOUBLE_EQ(x, 0.0);
     EXPECT_DOUBLE_EQ(y, 0.0);
@@ -31,7 +31,7 @@ TEST(VehicleTest, PositionDefaultsToZero) {
 TEST(VehicleTest, SetAndGetPosition) {
     Vehicle v;
     v.setPosition(42.5, -13.7);
-    double x, y;
+    double x = -1.0, y = -1.0;
     v.getPosition(x, y);
     EXPECT_DOUBLE_EQ(x, 42.5);
     EXPECT_DOUBLE_EQ(y, -13.7);
