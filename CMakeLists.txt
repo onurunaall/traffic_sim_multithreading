@@ -4,8 +4,31 @@ project(traffic_simulation VERSION 1.0.0 LANGUAGES CXX)
 option(BUILD_GUI "Build the OpenCV visualization executable"  ON)
 option(BUILD_TESTS "Build unit tests (downloads GoogleTest)"          OFF)
 option(BUILD_BENCHMARKS "Build benchmarks (downloads Google Benchmark)" OFF)
+set(SANITIZER "" CACHE STRING "Sanitizer to build with: address | thread")
 
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
+
+
+# Sanitizers are applied globally, before any target or FetchContent, so
+# GoogleTest gets instrumented too (TSan reports false races otherwise).
+if(SANITIZER STREQUAL "address")
+    if(MSVC)
+        add_compile_options(/fsanitize=address)
+    else()
+        add_compile_options(-fsanitize=address,undefined
+                            -fno-sanitize-recover=all
+                            -fno-omit-frame-pointer)
+        add_link_options(-fsanitize=address,undefined)
+    endif()
+elseif(SANITIZER STREQUAL "thread")
+    if(MSVC)
+        message(FATAL_ERROR "ThreadSanitizer needs GCC or Clang")
+    endif()
+    add_compile_options(-fsanitize=thread)
+    add_link_options(-fsanitize=thread)
+elseif(NOT SANITIZER STREQUAL "")
+    message(FATAL_ERROR "Unknown SANITIZER '${SANITIZER}' (use address or thread)")
+endif()
 
 find_package(Threads REQUIRED)
 

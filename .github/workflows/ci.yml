@@ -1,0 +1,55 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  format:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check formatting
+        run: |
+          files=$(git ls-files 'src/*.cpp' 'src/*.h' 'tests/*.cpp' 'benchmarks/*.cpp')
+          if ! clang-format-18 --dry-run --Werror $files; then
+            clang-format-18 -i $files
+            git diff
+            exit 1
+          fi
+
+  clang-tidy:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install dependencies
+        run: sudo apt-get update && sudo apt-get install -y clang-tidy-18 libopencv-dev
+      - name: Configure
+        run: cmake -B build -DBUILD_TESTS=ON -DBUILD_BENCHMARKS=ON
+      - name: Run clang-tidy
+        run: run-clang-tidy-18 -p build -quiet -warnings-as-errors='*' '/(src|tests|benchmarks)/'
+
+  sanitizers:
+    runs-on: ubuntu-24.04
+    strategy:
+      fail-fast: false
+      matrix:
+        sanitizer: [thread, address]
+    env:
+      TSAN_OPTIONS: halt_on_error=1:second_deadlock_stack=1
+      ASAN_OPTIONS: detect_leaks=1:halt_on_error=1
+      UBSAN_OPTIONS: print_stacktrace=1
+    steps:
+      - uses: actions/checkout@v4
+      # Newer runner kernels use more ASLR bits than TSan can handle.
+      - name: Lower ASLR entropy for TSan
+        if: matrix.sanitizer == 'thread'
+        run: sudo sysctl vm.mmap_rnd_bits=28
+      - name: Configure
+        run: >
+          cmake -B build -DCMAKE_BUILD_TYPE=RelWithDebInfo
+          -DBUILD_GUI=OFF -DBUILD_TESTS=ON -DSANITIZER=${{ matrix.sanitizer }}
+      - name: Build
+        run: cmake --build build --parallel
+      - name: Test
+        run: ctest --test-dir build --output-on-failure
