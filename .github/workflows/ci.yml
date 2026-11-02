@@ -29,16 +29,26 @@ jobs:
         run: sudo apt-get update && sudo apt-get install -y clang-tidy-18 libopencv-dev
       - name: Configure
         run: cmake -B build -DBUILD_TESTS=ON -DBUILD_BENCHMARKS=ON
-      # On failure the findings also go into one annotation, so they show up
-      # on the run page without digging through the log.
+      # On failure the findings are also posted as annotations (a per-check
+      # summary, then the findings in chunks), so they show up on the run
+      # page without digging through the log.
       - name: Run clang-tidy
         run: |
           if ! run-clang-tidy-18 -p build -quiet -warnings-as-errors='*' \
                 '/(src|tests|benchmarks)/' > tidy.log 2>&1; then
             cat tidy.log
-            findings=$(grep -E '(warning|error):' tidy.log | sed "s|$PWD/||" | sort -u |
-                       head -c 60000 | sed ':a;N;$!ba;s/%/%25/g;s/\n/%0A/g')
-            echo "::error title=clang-tidy findings::${findings:-see log}"
+            grep -E '^[^ ].*:[0-9]+:[0-9]+: (warning|error):' tidy.log |
+              sed -E "s|$PWD/||; s/:[0-9]+: (warning|error):/:/; s/,-warnings-as-errors\]/]/" |
+              sort -u > findings.txt
+            summary=$(sed -E 's/.*\[([^]]+)\]$/\1/' findings.txt | sort | uniq -c | sort -rn)
+            echo "::error title=clang-tidy summary::$(echo "$summary" | sed ':a;N;$!ba;s/\n/%0A/g')"
+            split -C 3500 -d findings.txt chunk_
+            n=0
+            for f in chunk_*; do
+              level=$([ $n -lt 9 ] && echo error || ([ $n -lt 19 ] && echo warning || echo notice))
+              echo "::$level title=clang-tidy $n::$(sed ':a;N;$!ba;s/%/%25/g;s/\n/%0A/g' "$f")"
+              n=$((n + 1))
+            done
             exit 1
           fi
 

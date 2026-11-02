@@ -1,0 +1,7 @@
+# GoogleTest / Google Benchmark macros define globals and allocate with new,
+# which these checks flag on every TEST and BENCHMARK.
+InheritParentConfig: true
+Checks: >
+  -cppcoreguidelines-owning-memory,
+  -cppcoreguidelines-avoid-non-const-global-variables,
+  -cppcoreguidelines-special-member-functions
