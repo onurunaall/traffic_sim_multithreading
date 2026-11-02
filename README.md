@@ -1,5 +1,7 @@
 # Concurrent Traffic Simulation
 
+[![CI](https://github.com/onurunaall/traffic_sim_multithreading/actions/workflows/ci.yml/badge.svg)](https://github.com/onurunaall/traffic_sim_multithreading/actions/workflows/ci.yml)
+
 ![Simulation in action](assets/Recording_2026-03-03_151433.gif)
 
 A small traffic simulator in C++20 where every car, intersection and traffic light runs on its own thread. Cars drive along streets, line up at intersections, wait for a green light, cross, and pick a new street at random. OpenCV draws it all on top of a city map.
@@ -69,6 +71,21 @@ ctest --output-on-failure
 Besides the basic stuff (FIFO ordering, phase toggling, street lengths), the tests cover the cases that actually bit me: a stop request waking a blocked `receive`, a stop request waking a car stuck in a queue, and destroying a vehicle or traffic light mid-simulation without hanging. The benchmarks measure message queue throughput under contention, how the simulation scales with the number of cars and intersections, and how fast intersections can let cars in.
 
 If you only want the core library and tests without OpenCV, add `-DBUILD_GUI=OFF`.
+
+## Sanitizers and static analysis
+
+For a project that's all about threads, passing tests isn't enough. A data race can pass a test a thousand times and then show up once. So the tests also run under sanitizers:
+
+```bash
+cmake .. -DBUILD_GUI=OFF -DBUILD_TESTS=ON -DSANITIZER=thread    # ThreadSanitizer
+cmake .. -DBUILD_GUI=OFF -DBUILD_TESTS=ON -DSANITIZER=address   # ASan + UBSan
+```
+
+The flags are applied to the whole build, GoogleTest included, because TSan reports false races when part of the program isn't instrumented. TSan only works with GCC or Clang, so on Windows you'd need WSL. MSVC supports `address` but not `thread`.
+
+The code is formatted with clang-format (`.clang-format` in the repo root) and checked with clang-tidy (`.clang-tidy`). Most of the `bugprone`, `concurrency`, `performance`, `modernize` and `cppcoreguidelines` checks are on. The few I turned off are listed in the file with a reason.
+
+GitHub Actions runs all of this on every push: a format check, clang-tidy with warnings as errors, and the test suite under both ThreadSanitizer and ASan+UBSan. Neither sanitizer has flagged anything so far.
 
 ## Code layout
 
