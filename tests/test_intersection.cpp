@@ -15,15 +15,15 @@ struct MiniTopology {
     std::shared_ptr<Intersection> center;
     std::shared_ptr<Intersection> north;
     std::shared_ptr<Intersection> south;
-    std::shared_ptr<Street> street_n;   // north → center
-    std::shared_ptr<Street> street_s;   // center → south
+    std::shared_ptr<Street> street_n; // north → center
+    std::shared_ptr<Street> street_s; // center → south
 };
 
 MiniTopology buildMiniTopology() {
     MiniTopology t;
     t.center = std::make_shared<Intersection>();
-    t.north  = std::make_shared<Intersection>();
-    t.south  = std::make_shared<Intersection>();
+    t.north = std::make_shared<Intersection>();
+    t.south = std::make_shared<Intersection>();
 
     t.center->setPosition(100, 100);
     t.north->setPosition(100, 0);
@@ -107,7 +107,8 @@ TEST(IntersectionTest, TrafficLightEventuallyTurnsGreen) {
     auto start = std::chrono::steady_clock::now();
     while (!topo.center->trafficLightIsGreen()) {
         std::this_thread::sleep_for(std::chrono::milliseconds(50));
-        if (std::chrono::steady_clock::now() - start > std::chrono::seconds(7)) {
+        if (std::chrono::steady_clock::now() - start >
+            std::chrono::seconds(7)) {
             FAIL() << "Traffic light at intersection never turned green";
         }
     }
@@ -136,7 +137,8 @@ TEST(IntersectionTest, VehicleCanPassThroughIntersection) {
     // Should complete within a couple of traffic light cycles (~14s max)
     auto status = admitted_ftr.wait_for(std::chrono::seconds(15));
     ASSERT_EQ(status, std::future_status::ready)
-        << "Vehicle was never admitted through intersection — possible deadlock";
+        << "Vehicle was never admitted through intersection — possible "
+           "deadlock";
     EXPECT_TRUE(admitted_ftr.get());
 
     // Clean up: let the intersection know the vehicle left so it unblocks
@@ -152,7 +154,8 @@ TEST(IntersectionTest, StopUnblocksQueuedVehicle) {
     std::promise<bool> admitted;
     auto admitted_ftr = admitted.get_future();
     std::jthread worker([&] {
-        admitted.set_value(intersection.addVehicleToQueue(42, stop.get_token()));
+        admitted.set_value(
+            intersection.addVehicleToQueue(42, stop.get_token()));
     });
 
     EXPECT_EQ(admitted_ftr.wait_for(std::chrono::milliseconds(100)),

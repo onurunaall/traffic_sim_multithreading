@@ -57,11 +57,13 @@ std::size_t clampVehicleCount(int requested, std::size_t num_streets) {
 }
 
 void addVehicles(TrafficScene &scene, int requested, StreetEnd destination) {
-    const std::size_t count = clampVehicleCount(requested, scene.streets.size());
+    const std::size_t count =
+        clampVehicleCount(requested, scene.streets.size());
     for (std::size_t i = 0; i < count; ++i) {
         auto vehicle = std::make_shared<Vehicle>();
         vehicle->setCurrentStreet(scene.streets[i]);
-        vehicle->setCurrentDestination(std::invoke(destination, scene.streets[i]));
+        vehicle->setCurrentDestination(
+            std::invoke(destination, scene.streets[i]));
         scene.vehicles.push_back(std::move(vehicle));
     }
 }

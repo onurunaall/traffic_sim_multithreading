@@ -50,8 +50,8 @@ void Graphics::drawTrafficObjects() {
         if (obj->getType() == ObjectType::kIntersection) {
             auto intersection = std::dynamic_pointer_cast<Intersection>(obj);
             cv::Scalar color = intersection->trafficLightIsGreen()
-                                   ? cv::Scalar(0, 255, 0)   // green
-                                   : cv::Scalar(0, 0, 255);  // red
+                                   ? cv::Scalar(0, 255, 0)  // green
+                                   : cv::Scalar(0, 0, 255); // red
             cv::circle(overlay_, position, 25, color, -1);
         } else if (obj->getType() == ObjectType::kVehicle) {
             // Deterministic color per vehicle ID
@@ -66,7 +66,8 @@ void Graphics::drawTrafficObjects() {
 
     constexpr float kOpacity = 0.85f;
     cv::Mat composite;
-    cv::addWeighted(overlay_, kOpacity, background_, 1.0 - kOpacity, 0, composite);
+    cv::addWeighted(overlay_, kOpacity, background_, 1.0 - kOpacity, 0,
+                    composite);
 
     // Fit into 1040x720 while keeping the image's aspect ratio
     const double scale =

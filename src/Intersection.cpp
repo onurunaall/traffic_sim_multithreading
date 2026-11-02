@@ -62,9 +62,10 @@ Intersection::queryStreets(const std::shared_ptr<Street> &incoming) const {
     return outgoing;
 }
 
-bool Intersection::addVehicleToQueue(int vehicle_id, std::stop_token stop_token) {
-    log("Intersection #", id_, "::addVehicleToQueue: thread id = ",
-        std::this_thread::get_id());
+bool Intersection::addVehicleToQueue(int vehicle_id,
+                                     std::stop_token stop_token) {
+    log("Intersection #", id_,
+        "::addVehicleToQueue: thread id = ", std::this_thread::get_id());
 
     std::promise<void> entry_permit;
     std::future<void> entry_granted = entry_permit.get_future();

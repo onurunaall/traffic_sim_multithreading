@@ -1,6 +1,7 @@
 #include "TrafficObject.h"
 
-TrafficObject::TrafficObject() : id_(id_counter_.fetch_add(1)) {}
+TrafficObject::TrafficObject() : id_(id_counter_.fetch_add(1)) {
+}
 
 TrafficObject::~TrafficObject() {
     // No-op if the derived destructor already stopped the threads.

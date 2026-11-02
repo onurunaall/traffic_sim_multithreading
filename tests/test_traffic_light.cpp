@@ -49,9 +49,8 @@ TEST(TrafficLightTest, WaitForGreenReturnsOnGreen) {
     // jthread's destructor requests stop and unblocks it instead of hanging.
     std::promise<bool> result;
     auto result_ftr = result.get_future();
-    std::jthread waiter([&](std::stop_token st) {
-        result.set_value(tl.waitForGreen(st));
-    });
+    std::jthread waiter(
+        [&](std::stop_token st) { result.set_value(tl.waitForGreen(st)); });
 
     auto status = result_ftr.wait_for(std::chrono::seconds(8));
     ASSERT_EQ(status, std::future_status::ready)
@@ -61,12 +60,13 @@ TEST(TrafficLightTest, WaitForGreenReturnsOnGreen) {
 }
 
 TEST(TrafficLightTest, WaitForGreenReturnsFalseOnStop) {
-    TrafficLight tl;  // never simulated, so it stays red
+    TrafficLight tl; // never simulated, so it stays red
 
     std::stop_source stop;
     std::promise<bool> result;
     auto result_ftr = result.get_future();
-    std::jthread waiter([&] { result.set_value(tl.waitForGreen(stop.get_token())); });
+    std::jthread waiter(
+        [&] { result.set_value(tl.waitForGreen(stop.get_token())); });
 
     EXPECT_EQ(result_ftr.wait_for(std::chrono::milliseconds(100)),
               std::future_status::timeout);
@@ -86,14 +86,15 @@ TEST(TrafficLightTest, CycleDurationWithinExpectedRange) {
     auto start = std::chrono::steady_clock::now();
     while (tl.getCurrentPhase() == TrafficLightPhase::kRed) {
         std::this_thread::sleep_for(std::chrono::milliseconds(10));
-        if (std::chrono::steady_clock::now() - start > std::chrono::seconds(8)) {
+        if (std::chrono::steady_clock::now() - start >
+            std::chrono::seconds(8)) {
             FAIL() << "Timeout waiting for first toggle";
         }
     }
     auto first_toggle = std::chrono::steady_clock::now();
     auto duration_ms = std::chrono::duration_cast<std::chrono::milliseconds>(
-                            first_toggle - start)
-                            .count();
+                           first_toggle - start)
+                           .count();
 
     // Cycle should be between 4000 and 6000 ms, with some tolerance for
     // scheduling jitter

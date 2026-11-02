@@ -23,7 +23,7 @@ struct BenchTopology {
 
     void start() {
         for (auto &i : intersections) i->simulate();
-        for (auto &v : vehicles)      v->simulate();
+        for (auto &v : vehicles) v->simulate();
     }
 
     [[nodiscard]] int totalCrossings() const {
@@ -43,9 +43,7 @@ static BenchTopology buildRing(int num_intersections, int num_vehicles) {
     topo.intersections.reserve(static_cast<std::size_t>(num_intersections));
     for (int i = 0; i < num_intersections; ++i) {
         auto inter = std::make_shared<Intersection>();
-        inter->setPosition(
-            static_cast<double>(i) * 100.0,
-            0.0);
+        inter->setPosition(static_cast<double>(i) * 100.0, 0.0);
         topo.intersections.push_back(std::move(inter));
     }
 
@@ -55,9 +53,8 @@ static BenchTopology buildRing(int num_intersections, int num_vehicles) {
         auto street = std::make_shared<Street>();
         street->setInIntersection(
             topo.intersections[static_cast<std::size_t>(i)]);
-        street->setOutIntersection(
-            topo.intersections[static_cast<std::size_t>(
-                (i + 1) % num_intersections)]);
+        street->setOutIntersection(topo.intersections[static_cast<std::size_t>(
+            (i + 1) % num_intersections)]);
         topo.streets.push_back(std::move(street));
     }
 
@@ -65,8 +62,7 @@ static BenchTopology buildRing(int num_intersections, int num_vehicles) {
     topo.vehicles.reserve(static_cast<std::size_t>(num_vehicles));
     for (int i = 0; i < num_vehicles; ++i) {
         auto vehicle = std::make_shared<Vehicle>();
-        auto street_idx = static_cast<std::size_t>(
-            i % num_intersections);
+        auto street_idx = static_cast<std::size_t>(i % num_intersections);
         vehicle->setCurrentStreet(topo.streets[street_idx]);
         vehicle->setCurrentDestination(
             topo.streets[street_idx]->getOutIntersection());
@@ -79,8 +75,8 @@ static BenchTopology buildRing(int num_intersections, int num_vehicles) {
 /// Runs the topology for a fixed wall-clock duration and reports how many
 /// intersection crossings occurred — the key throughput metric for the
 /// concurrency model.
-static void runAndCountCrossings(benchmark::State &state,
-                                 int num_intersections, int num_vehicles) {
+static void runAndCountCrossings(benchmark::State &state, int num_intersections,
+                                 int num_vehicles) {
     constexpr auto kRunDuration = std::chrono::seconds(3);
     int crossings = 0;
 
@@ -98,15 +94,15 @@ static void runAndCountCrossings(benchmark::State &state,
         // Topology destructor stops all threads
     }
 
-    state.counters["vehicles"] = benchmark::Counter(
-        static_cast<double>(num_vehicles));
-    state.counters["intersections"] = benchmark::Counter(
-        static_cast<double>(num_intersections));
-    state.counters["crossings"] = benchmark::Counter(
-        static_cast<double>(crossings));
-    state.counters["crossings_per_s"] = benchmark::Counter(
-        static_cast<double>(crossings) /
-        std::chrono::duration<double>(kRunDuration).count());
+    state.counters["vehicles"] =
+        benchmark::Counter(static_cast<double>(num_vehicles));
+    state.counters["intersections"] =
+        benchmark::Counter(static_cast<double>(num_intersections));
+    state.counters["crossings"] =
+        benchmark::Counter(static_cast<double>(crossings));
+    state.counters["crossings_per_s"] =
+        benchmark::Counter(static_cast<double>(crossings) /
+                           std::chrono::duration<double>(kRunDuration).count());
 }
 
 /// Benchmark: measure how the simulation scales with vehicle count.
@@ -123,9 +119,15 @@ static void BM_SimulationScaling(benchmark::State &state) {
     state.SetLabel(std::to_string(num_vehicles) + " vehicles");
 }
 BENCHMARK(BM_SimulationScaling)
-    ->Arg(1)->Arg(2)->Arg(4)->Arg(8)->Arg(16)->Arg(32)->Arg(64)
+    ->Arg(1)
+    ->Arg(2)
+    ->Arg(4)
+    ->Arg(8)
+    ->Arg(16)
+    ->Arg(32)
+    ->Arg(64)
     ->Unit(benchmark::kSecond)
-    ->Iterations(1)    // single iteration per config (time-bounded)
+    ->Iterations(1) // single iteration per config (time-bounded)
     ->UseRealTime();
 
 /// Benchmark: fixed vehicles, scaling intersections.
@@ -138,7 +140,10 @@ static void BM_TopologyScaling(benchmark::State &state) {
     state.SetLabel(std::to_string(num_intersections) + " intersections");
 }
 BENCHMARK(BM_TopologyScaling)
-    ->Arg(4)->Arg(8)->Arg(16)->Arg(32)
+    ->Arg(4)
+    ->Arg(8)
+    ->Arg(16)
+    ->Arg(32)
     ->Unit(benchmark::kSecond)
     ->Iterations(1)
     ->UseRealTime();
@@ -176,4 +181,4 @@ static void BM_IntersectionAdmission(benchmark::State &state) {
 }
 BENCHMARK(BM_IntersectionAdmission)
     ->Unit(benchmark::kMillisecond)
-    ->Iterations(50);  // limited iterations because red lights add waits
+    ->Iterations(50); // limited iterations because red lights add waits

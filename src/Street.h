@@ -8,7 +8,8 @@
 // Forward declaration
 class Intersection;
 
-class Street : public TrafficObject, public std::enable_shared_from_this<Street> {
+class Street : public TrafficObject,
+               public std::enable_shared_from_this<Street> {
   public:
     Street();
 

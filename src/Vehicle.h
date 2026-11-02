@@ -28,11 +28,11 @@ class Vehicle : public TrafficObject {
 
     std::shared_ptr<Street> curr_street_;
     std::shared_ptr<Intersection> curr_destination_;
-    double pos_street_{0.0};      // progress along current street [0..length]
-    double base_speed_{400.0};    // base ego speed in pixels/second
+    double pos_street_{0.0};   // progress along current street [0..length]
+    double base_speed_{400.0}; // base ego speed in pixels/second
     bool is_in_intersection_{false};
 
-    std::mt19937 rng_;            // per-vehicle RNG, seeded once
+    std::mt19937 rng_; // per-vehicle RNG, seeded once
 };
 
 #endif // VEHICLE_H

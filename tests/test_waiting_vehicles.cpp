@@ -104,7 +104,7 @@ TEST(WaitingVehiclesTest, ConcurrentPushBack) {
             wv.pushBack(i, std::move(p));
         });
     }
-    threads.clear();  // join all
+    threads.clear(); // join all
 
     EXPECT_EQ(wv.getSize(), kNumThreads);
 }

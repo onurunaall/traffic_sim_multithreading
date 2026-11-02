@@ -19,7 +19,7 @@ TEST(MessageQueueTest, SendAndReceiveSingleMessage) {
 }
 
 TEST(MessageQueueTest, FIFO_Ordering) {
-    MessageQueue<int> q(10);  // capacity 10 so nothing gets dropped
+    MessageQueue<int> q(10); // capacity 10 so nothing gets dropped
     q.send(1);
     q.send(2);
     q.send(3);
@@ -29,18 +29,18 @@ TEST(MessageQueueTest, FIFO_Ordering) {
 }
 
 TEST(MessageQueueTest, BoundedCapacityDropsOldest) {
-    MessageQueue<int> q(2);  // keep at most 2
+    MessageQueue<int> q(2); // keep at most 2
     q.send(1);
     q.send(2);
-    q.send(3);  // should drop 1
+    q.send(3); // should drop 1
     EXPECT_EQ(q.receive(), 2);
     EXPECT_EQ(q.receive(), 3);
 }
 
 TEST(MessageQueueTest, DefaultCapacityIsOne) {
-    MessageQueue<int> q;  // default max_size = 1
+    MessageQueue<int> q; // default max_size = 1
     q.send(1);
-    q.send(2);  // should drop 1
+    q.send(2); // should drop 1
     EXPECT_EQ(q.receive(), 2);
 }
 
@@ -166,7 +166,7 @@ TEST(MessageQueueTest, ConcurrentProducerConsumerPingPong) {
         int last = -1;
         int count = 0;
         while (auto val = q.receive(st)) {
-            if (*val == kNumMessages) break;  // sentinel
+            if (*val == kNumMessages) break; // sentinel
             EXPECT_GT(*val, last) << "Non-monotonic at count " << count;
             last = *val;
             ++count;
@@ -180,6 +180,7 @@ TEST(MessageQueueTest, ConcurrentProducerConsumerPingPong) {
               std::future_status::ready);
 
     int received = consumer_ftr.get();
-    // We should receive at least some messages (not zero, not all if drops occur)
+    // We should receive at least some messages (not zero, not all if drops
+    // occur)
     EXPECT_GT(received, 0);
 }

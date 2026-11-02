@@ -4,3 +4,6 @@ AccessModifierOffset: -2
 ColumnLimit: 80
 PointerAlignment: Right
 AllowShortIfStatementsOnASingleLine: WithoutElse
+AllowShortLoopsOnASingleLine: true
+AllowShortFunctionsOnASingleLine: InlineOnly
+AlwaysBreakTemplateDeclarations: Yes

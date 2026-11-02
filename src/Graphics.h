@@ -11,7 +11,9 @@
 
 class Graphics {
   public:
-    void setBgFilename(std::string filename) { bg_filename_ = std::move(filename); }
+    void setBgFilename(std::string filename) {
+        bg_filename_ = std::move(filename);
+    }
 
     void setTrafficObjects(
         std::vector<std::shared_ptr<TrafficObject>> traffic_objects) {

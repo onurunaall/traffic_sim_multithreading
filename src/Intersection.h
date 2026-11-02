@@ -23,7 +23,8 @@ class WaitingVehicles {
     [[nodiscard]] int getSize();
     void pushBack(int vehicle_id, std::promise<void> &&promise);
 
-    /// Fulfills the first vehicle's promise. Returns false if the queue was empty.
+    /// Fulfills the first vehicle's promise. Returns false if the queue was
+    /// empty.
     bool permitEntryToFirstInQueue();
 
     /// Drops a vehicle without granting entry. Destroying its promise makes

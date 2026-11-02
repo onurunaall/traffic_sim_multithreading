@@ -18,7 +18,9 @@ static void BM_MessageQueue_SendReceive(benchmark::State &state) {
     state.SetItemsProcessed(state.iterations());
 }
 BENCHMARK(BM_MessageQueue_SendReceive)
-    ->Arg(1)->Arg(16)->Arg(256)
+    ->Arg(1)
+    ->Arg(16)
+    ->Arg(256)
     ->Unit(benchmark::kMicrosecond);
 
 // ─── Multi-producer, single-consumer throughput ─────────────────────
@@ -28,8 +30,8 @@ static void BM_MessageQueue_MPSC(benchmark::State &state) {
     constexpr int kMessagesPerProducer = 1000;
 
     for (auto _ : state) {
-        MessageQueue<int> q(static_cast<std::size_t>(
-            num_producers * kMessagesPerProducer));
+        MessageQueue<int> q(
+            static_cast<std::size_t>(num_producers * kMessagesPerProducer));
 
         // Launch producers
         std::vector<std::jthread> producers;
@@ -51,11 +53,15 @@ static void BM_MessageQueue_MPSC(benchmark::State &state) {
         producers.clear();
     }
 
-    state.SetItemsProcessed(
-        state.iterations() * num_producers * kMessagesPerProducer);
+    state.SetItemsProcessed(state.iterations() * num_producers *
+                            kMessagesPerProducer);
 }
 BENCHMARK(BM_MessageQueue_MPSC)
-    ->Arg(1)->Arg(2)->Arg(4)->Arg(8)->Arg(16)
+    ->Arg(1)
+    ->Arg(2)
+    ->Arg(4)
+    ->Arg(8)
+    ->Arg(16)
     ->Unit(benchmark::kMillisecond);
 
 // ─── Contended send (measures lock contention) ──────────────────────
@@ -65,8 +71,8 @@ static void BM_MessageQueue_ContendedSend(benchmark::State &state) {
     constexpr int kOpsPerThread = 10000;
 
     for (auto _ : state) {
-        MessageQueue<int> q(static_cast<std::size_t>(
-            num_threads * kOpsPerThread));
+        MessageQueue<int> q(
+            static_cast<std::size_t>(num_threads * kOpsPerThread));
 
         std::vector<std::jthread> threads;
         threads.reserve(static_cast<std::size_t>(num_threads));
@@ -80,9 +86,11 @@ static void BM_MessageQueue_ContendedSend(benchmark::State &state) {
         threads.clear();
     }
 
-    state.SetItemsProcessed(
-        state.iterations() * num_threads * kOpsPerThread);
+    state.SetItemsProcessed(state.iterations() * num_threads * kOpsPerThread);
 }
 BENCHMARK(BM_MessageQueue_ContendedSend)
-    ->Arg(1)->Arg(2)->Arg(4)->Arg(8)
+    ->Arg(1)
+    ->Arg(2)
+    ->Arg(4)
+    ->Arg(8)
     ->Unit(benchmark::kMillisecond);
