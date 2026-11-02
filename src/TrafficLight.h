@@ -11,6 +11,8 @@ enum class TrafficLightPhase {
     kGreen,
 };
 
+// Copy/move are already deleted in TrafficObject.
+// NOLINTNEXTLINE(cppcoreguidelines-special-member-functions)
 class TrafficLight : public TrafficObject {
   public:
     ~TrafficLight() override;

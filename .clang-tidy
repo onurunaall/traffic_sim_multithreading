@@ -21,8 +21,6 @@ Checks: >
 CheckOptions:
   # std::stop_token is a cheap handle; the standard library passes it by value.
   performance-unnecessary-value-param.AllowedTypes: 'std::stop_token'
-  # TrafficObject deletes copy/move, so derived classes only need a destructor.
-  cppcoreguidelines-special-member-functions.AllowImplicitlyDeletedCopyOrMove: true
 
 # Only our own headers (GoogleTest/Benchmark also have src/ folders).
 HeaderFilterRegex: '.*/src/[A-Z][A-Za-z]*\.h$'

@@ -41,6 +41,8 @@ class WaitingVehicles {
     std::mutex mtx_;
 };
 
+// Copy/move are already deleted in TrafficObject.
+// NOLINTNEXTLINE(cppcoreguidelines-special-member-functions)
 class Intersection : public TrafficObject {
   public:
     Intersection();

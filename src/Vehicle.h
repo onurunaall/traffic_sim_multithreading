@@ -10,6 +10,8 @@
 class Street;
 class Intersection;
 
+// Copy/move are already deleted in TrafficObject.
+// NOLINTNEXTLINE(cppcoreguidelines-special-member-functions)
 class Vehicle : public TrafficObject {
   public:
     Vehicle();
